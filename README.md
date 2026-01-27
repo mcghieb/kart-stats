@@ -15,6 +15,7 @@
       - total track records
       - track record for last 10 heats
   - Some sort of integration that will post messages to Discord displaying the leaderboard.
+
 ___
 
 ## Resources
@@ -24,10 +25,18 @@ ___
 
 ## Steps
 - [x] Make DB Schema for scrapeable data
-- [ ] Make DB Creation Script
-- [ ] Initialize DB
-- [ ] Create Web Scraper to populate database (using Change Data Capture)
-- [ ] Set up Web Scraper to run as a cron job
+- [ ] Make DB initialization script
+- [ ] Initialize local DB
+- [ ] Create web scraper to populate DB (using Change Data Capture)
+- [ ] Test web scraper with local DB
+- [ ] Research cloud DB options
+- [ ] Implement cloud DB
+- [ ] Set up a cron job that uses the web scraper to populate cloud DB
+- [ ] Grant access to cloud database to other contributors
+- [ ] Make a script that determines a leader-board
+- [ ] Research discord integrations for displaying leader-board changes
+- [ ] Implement discord integration for displaying leader-board changes
+- [ ] Plan out a possible website representation
 
 ___
 
