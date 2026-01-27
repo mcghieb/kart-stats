@@ -23,11 +23,11 @@ ___
 ___
 
 ## Steps
-[x] Make DB Schema for scrapeable data
-[] Make DB Creation Script
-[] Initialize DB
-[] Create Web Scraper to populate database (using Change Data Capture)
-[] Set up Web Scraper to run as a cron job
+- [x] Make DB Schema for scrapeable data
+- [ ] Make DB Creation Script
+- [ ] Initialize DB
+- [ ] Create Web Scraper to populate database (using Change Data Capture)
+- [ ] Set up Web Scraper to run as a cron job
 
 ___
 
