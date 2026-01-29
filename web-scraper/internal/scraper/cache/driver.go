@@ -1,4 +1,4 @@
-package scraper
+package cache
 
 import (
 	"fmt"
@@ -7,24 +7,34 @@ import (
 	"github.com/mcghieb/kart-stats/web-scraper/internal/models"
 )
 
-type DriverCache struct {
+type Driver struct {
 	drivers sync.Map
 }
 
-func NewDriverCache() *DriverCache {
-	return &DriverCache{}
+func NewDriverCache() *Driver {
+	return &Driver{}
 }
 
-func (c *DriverCache) Put(d models.Driver) {
+func (c *Driver) Get(id string) (models.Driver, bool) {
+	val, exists := c.drivers.Load(id)
+	if !exists {
+		return models.Driver{}, false
+	}
+
+	d := val.(models.Driver)
+	return d, true
+}
+
+func (c *Driver) Put(d models.Driver) {
 	c.drivers.Store(d.ID, d)
 }
 
-func (c *DriverCache) Has(id string) bool {
+func (c *Driver) Has(id string) bool {
 	_, exists := c.drivers.Load(id)
 	return exists
 }
 
-func (c *DriverCache) UpdateProskill(id string, p int) error {
+func (c *Driver) UpdateProskill(id string, p int) error {
 	val, ok := c.drivers.Load(id)
 	if !ok {
 		return fmt.Errorf(

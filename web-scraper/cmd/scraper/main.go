@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mcghieb/kart-stats/web-scraper/internal/scraper"
+	"github.com/mcghieb/kart-stats/web-scraper/internal/scraper/cache"
 )
 
 func main() {
@@ -15,20 +16,23 @@ func main() {
 	// Async visit every url between start and stop
 	// scrape from start_heatno to stop_heatno
 
-	fmt.Println("BEGINNING")
+	fmt.Println("BEGIN")
 
 	c := scraper.NewCollector()
-	cache := scraper.NewDriverCache()
+	cache := cache.NewCache()
 	scraper.AttachHandlers(c, cache)
 
+	// TODO: make url creation utility
 	if err := c.Visit("https://rrorem.clubspeed.com/sp_center/HeatDetails.aspx?HeatNo=39299"); err != nil {
 		fmt.Println("Scraper encountered an error on heat 39299")
 	}
 
 	fmt.Println("END")
 
-	// TODO: AT THE END: go through all of the drivers in the cache
-	// and update their proskills in the db. This avoids us needing
-	// to make a bunch of updates mid process when there could be a
-	// lot of separate races of the same drivers
+	// TODO: AT THE END OF THE SCRIPT:
+	// go through all of the drivers in the cache
+	// and update their proskills in the db. This
+	// avoids us needing to make a bunch of updates
+	// mid process when there could be a lot of
+	// separate races of the same drivers
 }
