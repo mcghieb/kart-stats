@@ -8,7 +8,8 @@ import (
 )
 
 type Driver struct {
-	drivers sync.Map
+	drivers   sync.Map
+	aliasToID sync.Map
 }
 
 func NewDriverCache() *Driver {
@@ -25,8 +26,18 @@ func (c *Driver) Get(id string) (models.Driver, bool) {
 	return d, true
 }
 
+func (c *Driver) GetByAlias(a string) (models.Driver, bool) {
+	id, exists := c.aliasToID.Load(a)
+	if !exists {
+		return models.Driver{}, false
+	}
+
+	return c.Get(id.(string))
+}
+
 func (c *Driver) Put(d models.Driver) {
 	c.drivers.Store(d.ID, d)
+	c.aliasToID.Store(d.Alias, d.ID)
 }
 
 func (c *Driver) Has(id string) bool {
