@@ -1,10 +1,10 @@
 CREATE TABLE races (
-  id smallint NOT NULL PRIMARY KEY, -- this is the heat numeric
+  id smallint NOT NULL PRIMARY KEY, -- this is the heat number
   time timestamp NOT NULL
 )
 
 CREATE TABLE karts (
-  id smallint NOT NULL PRIMARY KEY -- this is the kart numeric
+  id smallint NOT NULL PRIMARY KEY -- this is the kart number
 )
 
 CREATE TABLE drivers (
