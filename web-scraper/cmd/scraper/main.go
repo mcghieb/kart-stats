@@ -18,12 +18,17 @@ func main() {
 	fmt.Println("BEGINNING")
 
 	c := scraper.NewCollector()
-	scraper.AttachHandlers(c)
+	cache := scraper.NewDriverCache()
+	scraper.AttachHandlers(c, cache)
 
-	// HAVE IT VISIT A DUMMY PAGE
 	if err := c.Visit("https://rrorem.clubspeed.com/sp_center/HeatDetails.aspx?HeatNo=39299"); err != nil {
 		fmt.Println("Scraper encountered an error on heat 39299")
 	}
 
 	fmt.Println("END")
+
+	// TODO: AT THE END: go through all of the drivers in the cache
+	// and update their proskills in the db. This avoids us needing
+	// to make a bunch of updates mid process when there could be a
+	// lot of separate races of the same drivers
 }
