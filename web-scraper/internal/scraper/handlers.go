@@ -6,37 +6,34 @@ import (
 
 	"github.com/gocolly/colly/v2"
 	"github.com/mcghieb/kart-stats/web-scraper/internal/models"
+	"github.com/mcghieb/kart-stats/web-scraper/internal/scraper/cache"
 )
 
 // AttachHandlers attaches the HEAT SCRAPING HANDLERS. Name will change if a different handler set is needed for other scraping.
-func AttachHandlers(c *colly.Collector, cache *DriverCache) {
+func AttachHandlers(c *colly.Collector, cache *cache.Cache) {
 	c.OnHTML("a[href^='RacerHistory']", func(e *colly.HTMLElement) {
-		handleCreateUser(e, cache)
+		handleCreateUser(e, cache.Driver)
 	})
-	c.OnHTML("table.RaceResults > tbody", handleResultsTable)
+
+	c.OnHTML("table.RaceResults > tbody", func(e *colly.HTMLElement) {
+		handleResultsTable(e, cache)
+	})
+
 	c.OnHTML("table.LapTimes", handleTimeTable)
 }
 
-// FIXME: Create User Handler
-func handleCreateUser(e *colly.HTMLElement, cache *DriverCache) {
-	// Add name to cache to not check again in this scraping process
-	// Grab the CustID from the href and check against database to see if this user exists already
-	// if not: create a new row in the drivers table
-
+func handleCreateUser(e *colly.HTMLElement, c *cache.Driver) {
 	href := e.Attr("href")
 	id := strings.Split(href, "=")[1]
 
 	var d models.Driver
-	if !cache.Has(id) { // persist new driver in cache
-		// TODO: create driver
+	if !c.Has(id) { // persist new driver in cache
 		d = models.Driver{
 			ID:             id,
-			Name:           "", // FIXME:
-			Alias:          "", // FIXME:
-			ProskillRating: 0,  // FIXME:
+			Alias:          e.Text,
+			ProskillRating: 0, // THIS SHOULD GET UPDATED IN A DIFFERENT HANDLER
 		}
-	} else { // modify driver's proskill rating in the cache
-		// FIXME:
+		c.Put(d)
 	}
 	cache.Put(d)
 
