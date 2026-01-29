@@ -35,13 +35,42 @@ func handleCreateUser(e *colly.HTMLElement, c *cache.Driver) {
 		}
 		c.Put(d)
 	}
-	cache.Put(d)
-
-	fmt.Printf("Create User Hit: %s\n\tCustID: %s\n", e.Text, id)
 }
 
-func handleResultsTable(e *colly.HTMLElement) {
-	fmt.Println("Main Results Table Found")
+// tbody
+func handleResultsTable(e *colly.HTMLElement, c *cache.Cache) {
+	e.ForEach("tr[class^='Top3Winners']", func(i int, e *colly.HTMLElement) {
+		top3Row(i, e, c)
+	})
+}
+
+func top3Row(i int, e *colly.HTMLElement, c *cache.Cache) {
+	idx := i + 1 // Determines which row parsing strategy to use
+	fmt.Printf("i: %d\n", idx)
+	switch idx {
+	case 1:
+		top3RowOne(e, c)
+	case 2:
+		top3RowTwo(e, c)
+	case 3:
+		top3RowThree(e, c)
+	default:
+		// TODO: ERROR
+	}
+
+	if idx%3 == 0 {
+		// update DB with cache.Race
+		// clear cache.Race
+	}
+}
+
+func top3RowOne(e *colly.HTMLElement, c *cache.Cache) {
+}
+
+func top3RowTwo(e *colly.HTMLElement, c *cache.Cache) {
+}
+
+func top3RowThree(e *colly.HTMLElement, c *cache.Cache) {
 }
 
 // FIXME: Time Table Handler
