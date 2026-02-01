@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/mcghieb/kart-stats/web-scraper/internal/scraper"
-	"github.com/mcghieb/kart-stats/web-scraper/internal/scraper/cache"
+	"github.com/mcghieb/kart-stats/web-scraper/internal/cache"
+	"github.com/mcghieb/kart-stats/web-scraper/internal/collector"
+	"github.com/mcghieb/kart-stats/web-scraper/internal/scrapers/racedata"
 )
 
 func main() {
@@ -18,9 +19,9 @@ func main() {
 
 	fmt.Println("BEGIN")
 
-	c := scraper.NewCollector()
+	c := collector.NewCollector()
 	cache := cache.NewCache()
-	scraper.AttachHandlers(c, cache)
+	racedata.AttachHandlers(c, cache)
 
 	// TODO: make url creation utility
 	if err := c.Visit("https://rrorem.clubspeed.com/sp_center/HeatDetails.aspx?HeatNo=39299"); err != nil {

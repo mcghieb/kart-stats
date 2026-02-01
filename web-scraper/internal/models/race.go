@@ -1,24 +1,28 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
-type RaceResult struct {
-	ID             string // HeatNo //FIXME: this is missing
+// Race represents a race heat result for a driver
+type Race struct {
+	ID             string // HeatNo
 	KartID         int    // kart number
 	DriverID       string // CustID
 	Position       int
-	Penalties      int // FIXME: also missing
+	Penalties      int // FIXME: missing
 	BestLaptime    float64
 	AvgLaptime     float64
 	NumLaps        int
 	GapFromLeader  float64
-	ProskillRating int // FIXME: add to db schema
-	// FIXME: missing: timestamp, track name
+	ProskillRating int       // FIXME: Track          string    // FIXME:
+	Timestamp      time.Time // FIXME:
 }
 
-func (rr RaceResult) String() string {
+func (r Race) String() string {
 	return fmt.Sprintf(
-		"RaceResult{\n"+
+		"Race Heat Result{\n"+
 			"\tID: %s\n"+
 			"\tKartID: %d\n"+
 			"\tDriverID: %s\n"+
@@ -30,15 +34,15 @@ func (rr RaceResult) String() string {
 			"\tGapFromLeader: %.3f\n"+
 			"\tProskillRating: %d\n"+
 			"}",
-		rr.ID,
-		rr.KartID,
-		rr.DriverID,
-		rr.Position,
-		rr.Penalties,
-		rr.BestLaptime,
-		rr.AvgLaptime,
-		rr.NumLaps,
-		rr.GapFromLeader,
-		rr.ProskillRating,
+		r.ID,
+		r.KartID,
+		r.DriverID,
+		r.Position,
+		r.Penalties,
+		r.BestLaptime,
+		r.AvgLaptime,
+		r.NumLaps,
+		r.GapFromLeader,
+		r.ProskillRating,
 	)
 }

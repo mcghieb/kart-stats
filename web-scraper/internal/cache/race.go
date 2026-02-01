@@ -14,18 +14,16 @@ func NewRaceCache() *Race {
 	return &Race{}
 }
 
-func (r *Race) Put(result models.RaceResult) {
+func (r *Race) Put(result models.Race) {
 	r.races.Store(result.ID, result)
 }
 
-func (r *Race) Get(raceID string) models.RaceResult {
+func (r *Race) Get(raceID string) models.Race {
 	val, exists := r.races.Load(raceID)
 	if !exists {
-		// put empty in cache, return empty
-		result := models.RaceResult{ID: raceID}
-		r.Put(result)
+		result := models.Race{ID: raceID}
 		return result
 	}
 
-	return val.(models.RaceResult)
+	return val.(models.Race)
 }

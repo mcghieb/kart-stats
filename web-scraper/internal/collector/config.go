@@ -1,4 +1,4 @@
-package scraper
+package collector
 
 import "github.com/gocolly/colly/v2"
 

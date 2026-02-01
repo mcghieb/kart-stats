@@ -26,7 +26,7 @@ func (c *Driver) Get(id string) (models.Driver, bool) {
 	return d, true
 }
 
-func (c *Driver) GetByAlias(a string) (models.Driver, bool) {
+func (c *Driver) ByAlias(a string) (models.Driver, bool) {
 	id, exists := c.aliasToID.Load(a)
 	if !exists {
 		return models.Driver{}, false
