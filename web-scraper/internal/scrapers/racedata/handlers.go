@@ -52,17 +52,18 @@ func handleResultsTable(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	})
 }
 
+// TODO: update DB with cache.Race
 func top3Row(i int, e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	idx := (i % 3) + 1 // Determines which row parsing strategy to use
 	switch idx {
 	case 1:
-		top3RowOne(e, c, heatNum)
+		cacheTop3RowOne(e, c, heatNum)
 	case 2:
-		top3RowTwo(e, c, heatNum)
+		cacheTop3RowTwo(e, c, heatNum)
 	case 3:
-		top3RowThree(e, c, heatNum)
+		cacheTop3RowThree(e, c, heatNum)
 	default:
-		// TODO: ERROR
+		fmt.Println(fmt.Errorf("ERROR: top3Row route does not exist"))
 	}
 
 	if idx == 3 {
@@ -75,51 +76,115 @@ func top3Row(i int, e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	}
 }
 
-// FIXME: swallowing error handling
-func top3RowOne(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
-	cache.UpdateCachedDriverID(e, c, heatNum, parse.DriverAlias)
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Top3Position, func(r *models.Race, v int) { r.Position = v })
+func cacheTop3RowOne(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
+	errs := make([]error, 0)
+	if err := cache.UpdateCachedDriverID(e, c, heatNum, parse.DriverAlias); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Top3Position, func(r *models.Race, v int) { r.Position = v }); err != nil {
+		errs = append(errs, err)
+	}
+
+	logErrors(errs)
 }
 
-// FIXME: swallowing error handling
-func top3RowTwo(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.BestLaptime, func(r *models.Race, v float64) { r.BestLaptime = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.LeaderGap, func(r *models.Race, v float64) { r.GapFromLeader = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.AvgLaptime, func(r *models.Race, v float64) { r.AvgLaptime = v })
+func cacheTop3RowTwo(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
+	errs := make([]error, 0)
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.BestLaptime, func(r *models.Race, v float64) { r.BestLaptime = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.LeaderGap, func(r *models.Race, v float64) { r.GapFromLeader = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.AvgLaptime, func(r *models.Race, v float64) { r.AvgLaptime = v }); err != nil {
+		errs = append(errs, err)
+	}
+
+	logErrors(errs)
 }
 
-// FIXME: swallowing error handling
-func top3RowThree(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Proskill, func(r *models.Race, v int) { r.ProskillRating = v })
+func cacheTop3RowThree(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
+	errs := make([]error, 0)
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Proskill, func(r *models.Race, v int) { r.ProskillRating = v }); err != nil {
+		errs = append(errs, err)
+	}
 
 	// update proskill driver cache
 	proskill := c.Race.Get(heatNum).ProskillRating
 	driverID := c.Race.Get(heatNum).DriverID
 	if err := c.Driver.UpdateProskill(driverID, proskill); err != nil {
-		// TODO: error
+		errs = append(errs, err)
 	}
+
+	logErrors(errs)
 }
 
-// FIXME: swallowing error handling
+// FIXME: persist to db and clear cache.Race
 func regularRow(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
-	cache.UpdateCachedDriverID(e, c, heatNum, parse.DriverAlias)
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Position, func(r *models.Race, v int) { r.Position = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.BestLaptime, func(r *models.Race, v float64) { r.BestLaptime = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.LeaderGap, func(r *models.Race, v float64) { r.GapFromLeader = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.AvgLaptime, func(r *models.Race, v float64) { r.AvgLaptime = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Proskill, func(r *models.Race, v int) { r.ProskillRating = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v })
-	cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v })
+	cacheRegularRow(e, c, heatNum)
 
-	// Print completed race result TODO: remove this
-	fmt.Println(c.Race.Get(parse.HeatNum(e)))
+	// Print completed race result
+	fmt.Println(c.Race.Get(parse.HeatNum(e))) // TODO: remove this
 
 	// FIXME: persist to db and clear cache.Race
+	c.Race = cache.NewRaceCache()
 }
 
-// FIXME: Time Table Handler
+func cacheRegularRow(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
+	errs := make([]error, 0)
+	if err := cache.UpdateCachedDriverID(e, c, heatNum, parse.DriverAlias); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Position, func(r *models.Race, v int) { r.Position = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.BestLaptime, func(r *models.Race, v float64) { r.BestLaptime = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.LeaderGap, func(r *models.Race, v float64) { r.GapFromLeader = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.AvgLaptime, func(r *models.Race, v float64) { r.AvgLaptime = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Proskill, func(r *models.Race, v int) { r.ProskillRating = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v }); err != nil {
+		errs = append(errs, err)
+	}
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v }); err != nil {
+		errs = append(errs, err)
+	}
+	logErrors(errs)
+}
+
 func handleTimeTable(e *colly.HTMLElement) {
-	fmt.Println("Time Table Found")
+	driverAlias := e.ChildText("thead > tr > th")
+	fmt.Printf("Time Table Found: %s\n", driverAlias)
+
+	e.ForEach("tr[class^=LapTimes]", func(i int, lap *colly.HTMLElement) {
+		recordLap(driverAlias, lap)
+	})
+}
+
+func recordLap(driverAlias string, lap *colly.HTMLElement) {
+	cells := lap.DOM.Find("td")
+
+	lapNumber := cells.Eq(0).Text()
+	laptime := cells.Eq(1).Text()
+
+	fmt.Printf("\t%s's lap %s: %s\n", driverAlias, lapNumber, laptime)
+}
+
+func logErrors(errs []error) {
+	for _, err := range errs {
+		fmt.Println(fmt.Errorf("ERROR: %w", err))
+	}
 }
