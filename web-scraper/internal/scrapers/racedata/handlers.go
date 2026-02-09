@@ -2,6 +2,8 @@ package racedata
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/gocolly/colly/v2"
@@ -24,7 +26,10 @@ func AttachHandlers(c *colly.Collector, cache *cache.Cache) {
 	})
 
 	// FIXME:
-	c.OnHTML("table.LapTimes", handleTimeTable)
+	c.OnHTML("table.LapTimes", func(e *colly.HTMLElement) {
+		h := parse.HeatNum(e)
+		handleTimeTable(e, cache, h)
+	})
 }
 
 func handleCreateUser(e *colly.HTMLElement, c *cache.Driver) {
@@ -108,12 +113,12 @@ func cacheTop3RowTwo(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 
 func cacheTop3RowThree(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	errs := make([]error, 0)
-	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Proskill, func(r *models.Race, v int) { r.ProskillRating = v }); err != nil {
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Proskill, func(r *models.Race, v int) { r.SnapshotProskillRating = v }); err != nil {
 		errs = append(errs, err)
 	}
 
 	// update proskill driver cache
-	proskill := c.Race.Get(heatNum).ProskillRating
+	proskill := c.Race.Get(heatNum).SnapshotProskillRating
 	driverID := c.Race.Get(heatNum).DriverID
 	if err := c.Driver.UpdateProskill(driverID, proskill); err != nil {
 		errs = append(errs, err)
@@ -153,7 +158,7 @@ func cacheRegularRow(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.AvgLaptime, func(r *models.Race, v float64) { r.AvgLaptime = v }); err != nil {
 		errs = append(errs, err)
 	}
-	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Proskill, func(r *models.Race, v int) { r.ProskillRating = v }); err != nil {
+	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.Proskill, func(r *models.Race, v int) { r.SnapshotProskillRating = v }); err != nil {
 		errs = append(errs, err)
 	}
 	if err := cache.UpdateCachedRaceAttribute(e, c, heatNum, parse.NumLaps, func(r *models.Race, v int) { r.NumLaps = v }); err != nil {
@@ -165,9 +170,21 @@ func cacheRegularRow(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	logErrors(errs)
 }
 
-func handleTimeTable(e *colly.HTMLElement) {
+func handleTimeTable(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	driverAlias := e.ChildText("thead > tr > th")
 	fmt.Printf("Time Table Found: %s\n", driverAlias)
+
+	rawPen := e.ChildText("tbody > tr:first-child > td")
+	re := regexp.MustCompile(`[0-9]*`)
+	penString := re.FindString(rawPen)
+	numPenalties, err := strconv.Atoi(penString)
+	if err != nil {
+		println("ERROR: parsing int from string in handleTimeTable")
+	}
+
+	cache.UpdateCachedRace(c, heatNum, func(r *models.Race) {
+		r.Penalties = numPenalties
+	})
 
 	e.ForEach("tr[class^=LapTimes]", func(i int, lap *colly.HTMLElement) {
 		recordLap(driverAlias, lap)
@@ -178,9 +195,11 @@ func recordLap(driverAlias string, lap *colly.HTMLElement) {
 	cells := lap.DOM.Find("td")
 
 	lapNumber := cells.Eq(0).Text()
-	laptime := cells.Eq(1).Text()
+	rawLaptime := cells.Eq(1).Text()
+	re := regexp.MustCompile(`[0-9]*\.[0-9]*`)
+	laptimeString := re.FindString(rawLaptime)
 
-	fmt.Printf("\t%s's lap %s: %s\n", driverAlias, lapNumber, laptime)
+	fmt.Printf("\t%s's lap %s: %s\n", driverAlias, lapNumber, laptimeString)
 }
 
 func logErrors(errs []error) {

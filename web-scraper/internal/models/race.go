@@ -7,17 +7,18 @@ import (
 
 // Race represents a race heat result for a driver
 type Race struct {
-	ID             string // HeatNo
-	KartID         int    // kart number
-	DriverID       string // CustID
-	Position       int
-	Penalties      int // FIXME: missing
-	BestLaptime    float64
-	AvgLaptime     float64
-	NumLaps        int
-	GapFromLeader  float64
-	ProskillRating int       // FIXME: Track          string    // FIXME:
-	Timestamp      time.Time // FIXME:
+	ID                     string // HeatNo
+	KartID                 int    // kart number
+	DriverID               string // CustID
+	Position               int
+	Penalties              int
+	BestLaptime            float64
+	AvgLaptime             float64
+	NumLaps                int
+	GapFromLeader          float64
+	SnapshotProskillRating int       // this is the proskill rating after the heat (proskill on driver table is current proskill)     // FIXME:
+	Track                  string    // FIXME:
+	Timestamp              time.Time // FIXME:
 }
 
 func (r Race) String() string {
@@ -43,6 +44,6 @@ func (r Race) String() string {
 		r.AvgLaptime,
 		r.NumLaps,
 		r.GapFromLeader,
-		r.ProskillRating,
+		r.SnapshotProskillRating,
 	)
 }
