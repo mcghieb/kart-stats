@@ -11,6 +11,10 @@ import (
 // HeatNum parses a heat number from the Race Heat Result specific page
 func HeatNum(e *colly.HTMLElement) string {
 	url := e.Request.URL.String()
+	return HeatNumFromURL(url)
+}
+
+func HeatNumFromURL(url string) string {
 	return strings.Split(url, "=")[1]
 }
 
@@ -67,10 +71,9 @@ func Proskill(e *colly.HTMLElement) (int, error) {
 	return parseInt(e, "td.RPM > span", "proskill rating")
 }
 
-// generateFetchError represents a generator for an error
-// when fetching data from an html page
-func generateFetchError(s string) error {
-	return fmt.Errorf("Error: failed to fetch %s\n", s)
+// generateFetchError generates an error when fetching data from an HTML page fails
+func generateFetchError(field string) error {
+	return fmt.Errorf("failed to parse %s from HTML", field)
 }
 
 // parseString takes an html element and a selector

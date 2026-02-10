@@ -22,6 +22,7 @@ func (r *Race) Get(raceID string) models.Race {
 	val, exists := r.races.Load(raceID)
 	if !exists {
 		result := models.Race{ID: raceID}
+		result.Results = make(map[string]models.Result)
 		return result
 	}
 
