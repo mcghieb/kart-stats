@@ -60,3 +60,18 @@ func (c *Driver) UpdateProskill(id string, p int) error {
 
 	return nil
 }
+
+func (c *Driver) String() string {
+	result := "Driver Cache {\n"
+	count := 0
+	
+	c.drivers.Range(func(key, value interface{}) bool {
+		d := value.(models.Driver)
+		result += fmt.Sprintf("  %s\n", d.String())
+		count++
+		return true
+	})
+	
+	result += fmt.Sprintf("}\nTotal Drivers: %d", count)
+	return result
+}

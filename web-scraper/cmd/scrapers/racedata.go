@@ -28,6 +28,13 @@ func main() {
 		fmt.Println("Scraper encountered an error on heat 39299")
 	}
 
+	// Print the cached race data for heat 39299
+	race := cache.Race.Get("39299")
+	fmt.Println(race)
+
+	// print driver cache
+	fmt.Println(cache.Driver)
+
 	fmt.Println("END")
 
 	// TODO: AT THE END OF THE SCRIPT:

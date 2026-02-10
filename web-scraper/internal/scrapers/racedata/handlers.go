@@ -1,7 +1,6 @@
 package racedata
 
 import (
-	"fmt"
 	"log"
 	"regexp"
 	"strconv"
@@ -18,6 +17,50 @@ import (
 // Name will change if a different handler set is needed
 // for other scraping.
 func AttachHandlers(c *colly.Collector, appCache *cache.Cache) {
+	driverHandlers(c, appCache)
+	raceDataHandlers(c, appCache)
+}
+
+func driverHandlers(c *colly.Collector, appCache *cache.Cache) {
+	// set kartID in driver's race result
+	// early returns on missing context (heatNumber or driverID)
+	// this should only run after driver creation step in raceDataHandlers
+	c.OnHTML("a[href^='HeatDetails']", func(e *colly.HTMLElement) {
+		handleUpdateKartID(e, appCache)
+	})
+
+	// set driver's most current Proskill
+	// this should only run after driver creation step in raceDataHandlers
+	c.OnHTML("span#lblSpeedLimit", func(e *colly.HTMLElement) {
+		driverID := e.Request.Ctx.Get("driverID")
+
+		// convert proskill to int
+		proskill, err := strconv.Atoi(e.Text)
+		if err != nil {
+			log.Printf("failed to parse proskill from [%s]", e.Text)
+			return
+		}
+
+		appCache.Driver.UpdateProskill(driverID, proskill)
+	})
+}
+
+func raceDataHandlers(c *colly.Collector, appCache *cache.Cache) {
+	// Create users first to avoid cache breaks
+	c.OnHTML("a[href^='RacerHistory']", func(e *colly.HTMLElement) {
+		href := e.Attr("href")
+		driverID := strings.Split(href, "=")[1]
+
+		handleCreateUser(e, appCache.Driver)
+
+		h := parse.HeatNum(e)
+
+		// Set context for the driver history page visit
+		e.Request.Ctx.Put("heatNumber", h)
+		e.Request.Ctx.Put("driverID", driverID)
+		e.Request.Visit(href)
+	})
+
 	c.OnHTML("span#lblRaceType", func(e *colly.HTMLElement) {
 		h := parse.HeatNum(e)
 		cache.UpdateCachedRace(appCache, h, func(r *models.Race) {
@@ -48,10 +91,6 @@ func AttachHandlers(c *colly.Collector, appCache *cache.Cache) {
 		})
 	})
 
-	c.OnHTML("a[href^='RacerHistory']", func(e *colly.HTMLElement) {
-		handleCreateUser(e, appCache.Driver)
-	})
-
 	c.OnHTML("table.RaceResults > tbody", func(e *colly.HTMLElement) {
 		h := parse.HeatNum(e)
 		handleResultsTable(e, appCache, h)
@@ -61,12 +100,47 @@ func AttachHandlers(c *colly.Collector, appCache *cache.Cache) {
 		h := parse.HeatNum(e)
 		handleTimeTable(e, appCache, h)
 	})
+}
 
-	c.OnScraped(func(r *colly.Response) {
-		// Print and clear cache for this heat
-		h := parse.HeatNumFromURL(r.Request.URL.String())
-		fmt.Println(appCache.Race.Get(h))
-	})
+func handleUpdateKartID(e *colly.HTMLElement, c *cache.Cache) {
+	href := e.Attr("href")
+
+	// get heatNumber from context
+	heatNumber := e.Request.Ctx.Get("heatNumber")
+	// get driverID from context
+	driverID := e.Request.Ctx.Get("driverID")
+	if heatNumber == "" || driverID == "" {
+		log.Printf("failed to fetch heatNumber or driverID from request context when visiting [%s]", href)
+		return
+	}
+
+	if !strings.Contains(href, heatNumber) { // check if correct element
+		// no need to log as this is not an error
+		return
+	}
+
+	// parse kart id
+	re := regexp.MustCompile(`Kart [0-9]+`)
+	kartString := re.FindString(e.Text)
+	kart := strings.Split(kartString, " ")[1]
+	kartID, err := strconv.Atoi(kart)
+	if err != nil {
+		log.Printf("failed to parse kart number from [%s] for heat %s: %v", kartString, heatNumber, err)
+		return
+	}
+
+	// cache kart id in driver's race result
+	if err := cache.UpdateCachedResultAttribute(e, c, heatNumber, driverID,
+		func(e *colly.HTMLElement) (int, error) {
+			return kartID, nil
+		},
+		func(r *models.Result, val int) {
+			r.KartID = val
+		},
+	); err != nil {
+		log.Printf("failed to cache kart number for [%s] for heat %s: %v", kartString, heatNumber, err)
+		return
+	}
 }
 
 func handleCreateUser(e *colly.HTMLElement, c *cache.Driver) {
@@ -86,7 +160,7 @@ func handleCreateUser(e *colly.HTMLElement, c *cache.Driver) {
 
 func handleResultsTable(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	var currentDriverID string
-	
+
 	e.ForEach("tr[class^='Top3Winners']", func(i int, e *colly.HTMLElement) {
 		// Driver ID is only in the first row of each 3-row group
 		if i%3 == 0 {
@@ -179,12 +253,6 @@ func cacheTop3RowThree(e *colly.HTMLElement, c *cache.Cache, heatNum, driverID s
 		errs = append(errs, err)
 	}
 
-	// update proskill driver cache
-	proskill := c.Race.Get(heatNum).Results[driverID].SnapshotProskillRating
-	if err := c.Driver.UpdateProskill(driverID, proskill); err != nil {
-		errs = append(errs, err)
-	}
-
 	logErrors(errs)
 }
 
@@ -226,17 +294,12 @@ func cacheRegularRow(e *colly.HTMLElement, c *cache.Cache, heatNum string, drive
 		errs = append(errs, err)
 	}
 
-	proskill := c.Race.Get(heatNum).Results[driverID].SnapshotProskillRating
-	if err := c.Driver.UpdateProskill(driverID, proskill); err != nil {
-		errs = append(errs, err)
-	}
-
 	logErrors(errs)
 }
 
 func handleTimeTable(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	driverAlias := e.ChildText("thead > tr > th")
-	
+
 	// Look up driver by alias from cache
 	driver, exists := c.Driver.ByAlias(driverAlias)
 	if !exists {
@@ -281,12 +344,12 @@ func recordLap(c *cache.Cache, e *colly.HTMLElement, driverID, heatNum string) {
 	rawLaptime := cells.Eq(1).Text()
 	re := regexp.MustCompile(`[0-9]+\.[0-9]+`)
 	laptimeString := re.FindString(rawLaptime)
-	
+
 	// Skip empty lap cells (drivers who didn't complete all laps)
 	if laptimeString == "" {
 		return
 	}
-	
+
 	laptime, err := strconv.ParseFloat(laptimeString, 64)
 	if err != nil {
 		log.Printf("failed to parse laptime for driver %s lap %d: %v", driverID, lapNum, err)
@@ -294,5 +357,4 @@ func recordLap(c *cache.Cache, e *colly.HTMLElement, driverID, heatNum string) {
 	}
 
 	cache.UpdateCachedRaceLaps(c, heatNum, driverID, lapNum, laptime)
-	fmt.Printf("\t%s's lap %d: %s\n", driverID, lapNum, laptimeString)
 }
