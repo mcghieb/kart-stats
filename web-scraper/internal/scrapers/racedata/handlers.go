@@ -85,14 +85,20 @@ func handleCreateUser(e *colly.HTMLElement, c *cache.Driver) {
 }
 
 func handleResultsTable(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
+	var currentDriverID string
+	
 	e.ForEach("tr[class^='Top3Winners']", func(i int, e *colly.HTMLElement) {
-		driverID, err := cache.UpdateCachedDriverID(e, c, heatNum, parse.DriverAlias)
-		if err != nil {
-			log.Printf("failed to get driver ID for top3 row: %v", err)
-			return
+		// Driver ID is only in the first row of each 3-row group
+		if i%3 == 0 {
+			var err error
+			currentDriverID, err = cache.UpdateCachedDriverID(e, c, heatNum, parse.DriverAlias)
+			if err != nil {
+				log.Printf("failed to get driver ID for top3 row: %v", err)
+				return
+			}
 		}
 
-		top3Row(i, e, c, heatNum, driverID)
+		top3Row(i, e, c, heatNum, currentDriverID)
 	})
 
 	e.ForEach("tr[class^='RegularRow']", func(i int, e *colly.HTMLElement) {
@@ -230,20 +236,25 @@ func cacheRegularRow(e *colly.HTMLElement, c *cache.Cache, heatNum string, drive
 
 func handleTimeTable(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	driverAlias := e.ChildText("thead > tr > th")
-	driverID, err := cache.UpdateCachedDriverID(e, c, heatNum, parse.DriverAlias)
-	if err != nil {
-		log.Printf("failed to get driver ID for time table: %v", err)
+	
+	// Look up driver by alias from cache
+	driver, exists := c.Driver.ByAlias(driverAlias)
+	if !exists {
+		log.Printf("driver %s not found in cache for time table", driverAlias)
 		return
 	}
-	fmt.Printf("Time Table Found: %s\n", driverAlias)
+	driverID := driver.ID
 
 	rawPen := e.ChildText("tbody > tr:first-child > td")
-	re := regexp.MustCompile(`[0-9]*`)
+	re := regexp.MustCompile(`[0-9]+`)
 	penString := re.FindString(rawPen)
-	numPenalties, err := strconv.Atoi(penString)
-	if err != nil {
-		log.Printf("failed to parse penalties for heat %s: %v", heatNum, err)
-		numPenalties = 0
+	numPenalties := 0
+	if penString != "" {
+		var err error
+		numPenalties, err = strconv.Atoi(penString)
+		if err != nil {
+			log.Printf("failed to parse penalties for heat %s: %v", heatNum, err)
+		}
 	}
 
 	cache.UpdateCachedRace(c, heatNum, func(r *models.Race) {
@@ -268,8 +279,14 @@ func recordLap(c *cache.Cache, e *colly.HTMLElement, driverID, heatNum string) {
 	}
 
 	rawLaptime := cells.Eq(1).Text()
-	re := regexp.MustCompile(`[0-9]*\.[0-9]*`)
+	re := regexp.MustCompile(`[0-9]+\.[0-9]+`)
 	laptimeString := re.FindString(rawLaptime)
+	
+	// Skip empty lap cells (drivers who didn't complete all laps)
+	if laptimeString == "" {
+		return
+	}
+	
 	laptime, err := strconv.ParseFloat(laptimeString, 64)
 	if err != nil {
 		log.Printf("failed to parse laptime for driver %s lap %d: %v", driverID, lapNum, err)

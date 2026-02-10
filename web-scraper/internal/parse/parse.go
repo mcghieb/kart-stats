@@ -63,7 +63,7 @@ func Top3Position(e *colly.HTMLElement) (int, error) {
 
 // DriverAlias parses a driver's alias from the Race Heat Result specific page
 func DriverAlias(e *colly.HTMLElement) (string, error) {
-	return parseString(e, "td.Racername > span > a", "driver alias")
+	return parseString(e, "td.Racername a", "driver alias")
 }
 
 // Proskill parses a driver's proskill rating from the Race Heat Result specific page
