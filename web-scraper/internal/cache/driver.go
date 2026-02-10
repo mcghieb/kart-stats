@@ -61,6 +61,12 @@ func (c *Driver) UpdateProskill(id string, p int) error {
 	return nil
 }
 
+func (c *Driver) Range(f func(id string) bool) {
+	c.drivers.Range(func(key, value interface{}) bool {
+		return f(key.(string))
+	})
+}
+
 func (c *Driver) String() string {
 	result := "Driver Cache {\n"
 	count := 0

@@ -14,51 +14,11 @@ import (
 )
 
 // AttachHandlers attaches the HEAT SCRAPING HANDLERS.
-// Name will change if a different handler set is needed
-// for other scraping.
 func AttachHandlers(c *colly.Collector, appCache *cache.Cache) {
-	driverHandlers(c, appCache)
-	raceDataHandlers(c, appCache)
-}
-
-func driverHandlers(c *colly.Collector, appCache *cache.Cache) {
-	// set kartID in driver's race result
-	// early returns on missing context (heatNumber or driverID)
-	// this should only run after driver creation step in raceDataHandlers
-	c.OnHTML("a[href^='HeatDetails']", func(e *colly.HTMLElement) {
-		handleUpdateKartID(e, appCache)
-	})
-
-	// set driver's most current Proskill
-	// this should only run after driver creation step in raceDataHandlers
-	c.OnHTML("span#lblSpeedLimit", func(e *colly.HTMLElement) {
-		driverID := e.Request.Ctx.Get("driverID")
-
-		// convert proskill to int
-		proskill, err := strconv.Atoi(e.Text)
-		if err != nil {
-			log.Printf("failed to parse proskill from [%s]", e.Text)
-			return
-		}
-
-		appCache.Driver.UpdateProskill(driverID, proskill)
-	})
-}
-
-func raceDataHandlers(c *colly.Collector, appCache *cache.Cache) {
-	// Create users first to avoid cache breaks
+	// CRITICAL: Create all drivers FIRST using OnHTML for each link
+	// This ensures drivers exist before any lookups happen
 	c.OnHTML("a[href^='RacerHistory']", func(e *colly.HTMLElement) {
-		href := e.Attr("href")
-		driverID := strings.Split(href, "=")[1]
-
 		handleCreateUser(e, appCache.Driver)
-
-		h := parse.HeatNum(e)
-
-		// Set context for the driver history page visit
-		e.Request.Ctx.Put("heatNumber", h)
-		e.Request.Ctx.Put("driverID", driverID)
-		e.Request.Visit(href)
 	})
 
 	c.OnHTML("span#lblRaceType", func(e *colly.HTMLElement) {
@@ -100,47 +60,6 @@ func raceDataHandlers(c *colly.Collector, appCache *cache.Cache) {
 		h := parse.HeatNum(e)
 		handleTimeTable(e, appCache, h)
 	})
-}
-
-func handleUpdateKartID(e *colly.HTMLElement, c *cache.Cache) {
-	href := e.Attr("href")
-
-	// get heatNumber from context
-	heatNumber := e.Request.Ctx.Get("heatNumber")
-	// get driverID from context
-	driverID := e.Request.Ctx.Get("driverID")
-	if heatNumber == "" || driverID == "" {
-		log.Printf("failed to fetch heatNumber or driverID from request context when visiting [%s]", href)
-		return
-	}
-
-	if !strings.Contains(href, heatNumber) { // check if correct element
-		// no need to log as this is not an error
-		return
-	}
-
-	// parse kart id
-	re := regexp.MustCompile(`Kart [0-9]+`)
-	kartString := re.FindString(e.Text)
-	kart := strings.Split(kartString, " ")[1]
-	kartID, err := strconv.Atoi(kart)
-	if err != nil {
-		log.Printf("failed to parse kart number from [%s] for heat %s: %v", kartString, heatNumber, err)
-		return
-	}
-
-	// cache kart id in driver's race result
-	if err := cache.UpdateCachedResultAttribute(e, c, heatNumber, driverID,
-		func(e *colly.HTMLElement) (int, error) {
-			return kartID, nil
-		},
-		func(r *models.Result, val int) {
-			r.KartID = val
-		},
-	); err != nil {
-		log.Printf("failed to cache kart number for [%s] for heat %s: %v", kartString, heatNumber, err)
-		return
-	}
 }
 
 func handleCreateUser(e *colly.HTMLElement, c *cache.Driver) {
