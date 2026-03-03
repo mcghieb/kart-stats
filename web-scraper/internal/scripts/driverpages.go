@@ -37,7 +37,6 @@ func ParseDriverPages(appCache *cache.Cache) {
 	})
 
 	total := len(visits)
-	fmt.Printf("Visiting %d driver history pages\n", total)
 
 	// Counter for completed pages
 	var completed atomic.Int64
@@ -98,5 +97,5 @@ func driverWorker(work <-chan driverVisit, completed *atomic.Int64, wg *sync.Wai
 }
 
 func createURL(driverID string) string {
-	return fmt.Sprintf("%s=%s", BASEURL, driverID)
+	return fmt.Sprintf("%s=%s==", BASEURL, driverID)
 }
