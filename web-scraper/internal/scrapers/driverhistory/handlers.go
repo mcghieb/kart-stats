@@ -23,7 +23,6 @@ func AttachHandlers(c *colly.Collector, store *cache.Cache) {
 			return
 		}
 
-		fmt.Printf("PROSKILL for %s is %s\n", dID, e.Text)
 		proskill, err := parseProskill(e.Text)
 		if err != nil {
 			log.Printf("failed to parse proskill for driver %s: %v", dID, err)
