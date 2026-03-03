@@ -3,6 +3,7 @@ package parse
 import (
 	"fmt"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -82,6 +83,17 @@ func DriverAlias(e *colly.HTMLElement) (string, error) {
 func Proskill(e *colly.HTMLElement) (int, error) {
 	return parseInt(e, "td.RPM > span", "proskill rating")
 }
+
+// KartID parses a kart number from an activity type string (e.g. "Pro Track (13 Laps) - Kart 19")
+func KartID(activityText string) (int, error) {
+	matches := kartIDRegex.FindStringSubmatch(activityText)
+	if len(matches) < 2 {
+		return 0, fmt.Errorf("no kart number found in %q", activityText)
+	}
+	return strconv.Atoi(matches[1])
+}
+
+var kartIDRegex = regexp.MustCompile(`Kart\s+(\d+)`)
 
 // generateFetchError generates an error when fetching data from an HTML page fails
 func generateFetchError(field string) error {

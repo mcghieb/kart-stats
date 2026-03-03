@@ -11,7 +11,7 @@ import (
 	"github.com/mcghieb/kart-stats/web-scraper/internal/scrapers/racedata"
 )
 
-func ParseRaceData(cache *cache.Cache) {
+func ParseRacePages(cache *cache.Cache) {
 	fmt.Println("BEGIN")
 
 	c := collector.NewLocalCollector()
@@ -49,11 +49,13 @@ func ParseRaceData(cache *cache.Cache) {
 		}
 	}
 
+	// FIXME: remove this later
 	// Print the cached race data for heat 42004
 	race := cache.Race.Get("42004")
 	fmt.Println("\n=== RACE 42004 ===")
 	fmt.Println(race)
 
+	// FIXME: remove this later
 	// Print the last 10 drivers from cache
 	var driverIDs []string
 	cache.Driver.Range(func(id string) bool {
@@ -61,6 +63,7 @@ func ParseRaceData(cache *cache.Cache) {
 		return true
 	})
 
+	// FIXME: remove this later
 	fmt.Println("\n=== LAST 10 DRIVERS ===")
 	if len(driverIDs) > 0 {
 		startIdx := len(driverIDs) - 10
@@ -77,11 +80,4 @@ func ParseRaceData(cache *cache.Cache) {
 	}
 
 	fmt.Println("\nEND")
-
-	// TODO: AT THE END OF THE SCRIPT:
-	// go through all of the drivers in the cache
-	// and update their proskills in the db. This
-	// avoids us needing to make a bunch of updates
-	// mid process when there could be a lot of
-	// separate races of the same drivers
 }

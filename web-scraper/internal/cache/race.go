@@ -28,3 +28,8 @@ func (r *Race) Get(raceID string) models.Race {
 
 	return val.(models.Race)
 }
+
+func (r *Race) Has(raceID string) bool {
+	_, exists := r.races.Load(raceID)
+	return exists
+}
