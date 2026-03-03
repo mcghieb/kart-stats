@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/mcghieb/kart-stats/web-scraper/internal/cache"
 	"github.com/mcghieb/kart-stats/web-scraper/internal/collector"
@@ -12,7 +13,7 @@ import (
 )
 
 func ParseRacePages(cache *cache.Cache) {
-	fmt.Println("BEGIN")
+	startTime := time.Now()
 
 	c := collector.NewLocalCollector()
 	racedata.AttachHandlers(c, cache)
@@ -35,9 +36,10 @@ func ParseRacePages(cache *cache.Cache) {
 		panic(err) // not being able to parse html file names is a fatal error
 	}
 
-	fmt.Printf("Found %d HTML files to parse\n", len(htmlFiles))
+	total := len(htmlFiles)
+	fmt.Printf("Found %d HTML files to parse\n", total)
 
-	for _, file := range htmlFiles {
+	for i, file := range htmlFiles {
 		absPath, err := filepath.Abs(file)
 		if err != nil {
 			log.Printf("failed to get absolute path for %s: %v", file, err)
@@ -47,37 +49,24 @@ func ParseRacePages(cache *cache.Cache) {
 		if err := c.Visit(fileURL); err != nil {
 			log.Printf("failed to parse %s: %v", file, err)
 		}
+
+		completed := i + 1
+		if completed%100 == 0 {
+			elapsed := time.Since(startTime)
+			rate := float64(completed) / elapsed.Seconds()
+			remaining := total - completed
+			eta := time.Duration(float64(remaining)/rate) * time.Second
+
+			fmt.Printf("[Progress] %d/%d heats parsed | %.1f heats/sec | Elapsed: %v | ETA: %v\n",
+				completed, total, rate, elapsed.Round(time.Second), eta.Round(time.Second))
+		}
 	}
 
-	// FIXME: remove this later
-	// Print the cached race data for heat 42004
-	race := cache.Race.Get("42004")
-	fmt.Println("\n=== RACE 42004 ===")
-	fmt.Println(race)
-
-	// FIXME: remove this later
-	// Print the last 10 drivers from cache
-	var driverIDs []string
-	cache.Driver.Range(func(id string) bool {
-		driverIDs = append(driverIDs, id)
-		return true
-	})
-
-	// FIXME: remove this later
-	fmt.Println("\n=== LAST 10 DRIVERS ===")
-	if len(driverIDs) > 0 {
-		startIdx := len(driverIDs) - 10
-		if startIdx < 0 {
-			startIdx = 0
-		}
-		for i := startIdx; i < len(driverIDs); i++ {
-			driver, _ := cache.Driver.Get(driverIDs[i])
-			fmt.Println(driver.String())
-		}
-		fmt.Printf("\nTotal drivers in cache: %d\n", len(driverIDs))
-	} else {
-		fmt.Println("No drivers in cache")
+	elapsed := time.Since(startTime)
+	fmt.Println("\n=== PARSING COMPLETE ===")
+	fmt.Printf("Parsed %d heats\n", total)
+	fmt.Printf("Total time: %v\n", elapsed)
+	if elapsed.Seconds() > 0 {
+		fmt.Printf("Average rate: %.1f heats/sec\n", float64(total)/elapsed.Seconds())
 	}
-
-	fmt.Println("\nEND")
 }
