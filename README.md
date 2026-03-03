@@ -25,7 +25,7 @@ ___
 
 ## Steps
 - [x] Make DB Schema for scrapeable data
-- [ ] Make DB initialization script
+- [x] Make DB initialization script
 - [ ] Initialize local DB
 - [ ] Create web scraper to populate DB (using Change Data Capture)
 - [ ] Test web scraper with local DB
