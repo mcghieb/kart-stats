@@ -1,8 +1,9 @@
-package main
+package scripts
 
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -21,7 +22,15 @@ const (
 	workers     = 10
 )
 
-func main() {
+func numDigits(n int) int {
+	if n <= 0 {
+		return 1
+	}
+
+	return int(math.Log10(float64(n))) + 1
+}
+
+func DownloadHTMLpages() {
 	fmt.Println("BEGIN HTML DOWNLOAD")
 	startTime := time.Now()
 
@@ -40,9 +49,12 @@ func main() {
 	var wg sync.WaitGroup
 
 	// Start worker goroutines
+	heatDigits := numDigits(endHeatno)
+	folderDigits := numDigits(endHeatno / batchSize)
+
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
-		go worker(i, heatNums, &completed, &wg)
+		go worker(i, heatNums, &completed, &wg, heatDigits, folderDigits)
 	}
 
 	// Send heat numbers to workers
@@ -66,12 +78,12 @@ func main() {
 	fmt.Println("\nEND")
 }
 
-func worker(id int, heatNums <-chan int, completed *atomic.Int64, wg *sync.WaitGroup) {
+func worker(id int, heatNums <-chan int, completed *atomic.Int64, wg *sync.WaitGroup, heatDigits, folderDigits int) {
 	defer wg.Done()
 
 	// Each worker gets its own collector
 	c := collector.NewCollector()
-	attachHandler(c)
+	attachHandler(c, heatDigits, folderDigits)
 
 	for heatNo := range heatNums {
 		url := fmt.Sprintf("https://rrorem.clubspeed.com/sp_center/HeatDetails.aspx?HeatNo=%d", heatNo)
@@ -82,10 +94,19 @@ func worker(id int, heatNums <-chan int, completed *atomic.Int64, wg *sync.WaitG
 	}
 }
 
-func attachHandler(c *colly.Collector) {
+func attachHandler(c *colly.Collector, heatDigits, folderDigits int) {
+	folderFmt := fmt.Sprintf("heatdata-files/batch-%%0%dd", folderDigits)
+	fileFmt := fmt.Sprintf("%s/%%0%dd.html", folderFmt, heatDigits)
+
 	c.OnHTML("body", func(e *colly.HTMLElement) {
 		if strings.Contains(e.Request.URL.Path, "/sp_center/ServerError.html") {
 			// Silently skip errors to reduce noise
+			return
+		}
+
+		// Skip races with no winner (winner is "-")
+		winner := e.ChildText("span#lblWinner")
+		if strings.TrimSpace(winner) == "-" {
 			return
 		}
 
@@ -95,8 +116,8 @@ func attachHandler(c *colly.Collector) {
 			log.Printf("failed to convert heatno [%s] to int: %v", heatno, err)
 		}
 
-		folder := heat / 100
-		path := fmt.Sprintf("heatdata-files/batch-%d", folder)
+		folder := heat / batchSize
+		path := fmt.Sprintf(folderFmt, folder)
 		if !folderExists(path) {
 			err := os.MkdirAll(path, 0755)
 			if err != nil {
@@ -104,7 +125,7 @@ func attachHandler(c *colly.Collector) {
 			}
 		}
 
-		filename := fmt.Sprintf("heatdata-files/batch-%d/%s.html", folder, heatno)
+		filename := fmt.Sprintf(fileFmt, folder, heat)
 		if err := e.Response.Save(filename); err != nil {
 			log.Printf("failed to save %s: %v", filename, err)
 			return

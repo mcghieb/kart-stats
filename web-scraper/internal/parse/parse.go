@@ -2,6 +2,7 @@ package parse
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
@@ -15,7 +16,18 @@ func HeatNum(e *colly.HTMLElement) string {
 }
 
 func HeatNumFromURL(url string) string {
-	return strings.Split(url, "=")[1]
+	// Web URLs: ...?HeatNo=42004
+	if strings.Contains(url, "=") {
+		return strings.Split(url, "=")[1]
+	}
+	// File URLs: extract heat number from filename (e.g. "00042004.html" → "42004")
+	base := path.Base(url)
+	numStr := strings.TrimSuffix(base, ".html")
+	num, err := strconv.Atoi(numStr)
+	if err != nil {
+		return numStr
+	}
+	return strconv.Itoa(num)
 }
 
 // BestLaptime parses the driver's best laptime from the Race Heat Result specific page
@@ -101,6 +113,15 @@ func parseFloat(
 	return parseNumber(e, selector, category, func(s string) (float64, error) {
 		if checkLeaderGap && s == "-" { // if the driver is the leader for leader gap parsing
 			return 0.00, nil
+		}
+		// Handle "NL" format (e.g. "1L", "2L") meaning N laps behind the leader.
+		// Stored as negative values to distinguish from time-based gaps.
+		if checkLeaderGap && strings.HasSuffix(s, "L") {
+			lapsBehind, err := strconv.ParseFloat(strings.TrimSuffix(s, "L"), 64)
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse laps behind value %q: %w", s, err)
+			}
+			return -lapsBehind, nil
 		}
 		return strconv.ParseFloat(s, 64)
 	})

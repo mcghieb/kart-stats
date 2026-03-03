@@ -13,7 +13,7 @@ import (
 	"github.com/mcghieb/kart-stats/web-scraper/internal/parse"
 )
 
-// AttachHandlers attaches the HEAT SCRAPING HANDLERS.
+// AttachHandlers attaches the RACE DATA SCRAPING HANDLERS.
 func AttachHandlers(c *colly.Collector, appCache *cache.Cache) {
 	// CRITICAL: Create all drivers FIRST using OnHTML for each link
 	// This ensures drivers exist before any lookups happen
@@ -65,15 +65,19 @@ func AttachHandlers(c *colly.Collector, appCache *cache.Cache) {
 func handleCreateUser(e *colly.HTMLElement, c *cache.Driver) {
 	href := e.Attr("href")
 	id := strings.Split(href, "=")[1]
+	alias := strings.TrimSpace(e.Text)
 
-	var d models.Driver
 	if !c.Has(id) { // persist new driver in cache
-		d = models.Driver{
+		d := models.Driver{
 			ID:             id,
-			Alias:          e.Text,
-			ProskillRating: 0, // THIS GETS UPDATED IN A DIFFERENT HANDLER
+			Alias:          alias,
+			ProskillRating: 0, // THIS GETS UPDATED IN A DIFFERENT SCRIPT
 		}
 		c.Put(d)
+	} else {
+		// Ensure alias mapping exists even if driver was previously created
+		// with a different alias (e.g. different whitespace or name variant)
+		c.MapAlias(alias, id)
 	}
 }
 
@@ -222,7 +226,7 @@ func handleTimeTable(e *colly.HTMLElement, c *cache.Cache, heatNum string) {
 	// Look up driver by alias from cache
 	driver, exists := c.Driver.ByAlias(driverAlias)
 	if !exists {
-		log.Printf("driver %s not found in cache for time table", driverAlias)
+		log.Printf("driver %s not found in cache for time table (heat %s)", driverAlias, heatNum)
 		return
 	}
 	driverID := driver.ID
@@ -256,7 +260,7 @@ func recordLap(c *cache.Cache, e *colly.HTMLElement, driverID, heatNum string) {
 	ln := cells.Eq(0).Text()
 	lapNum, err := strconv.Atoi(ln)
 	if err != nil {
-		log.Printf("failed to parse lap number for driver %s: %v", driverID, err)
+		log.Printf("failed to parse lap number for driver %s in heat %s: %v", driverID, heatNum, err)
 		return
 	}
 
@@ -271,7 +275,7 @@ func recordLap(c *cache.Cache, e *colly.HTMLElement, driverID, heatNum string) {
 
 	laptime, err := strconv.ParseFloat(laptimeString, 64)
 	if err != nil {
-		log.Printf("failed to parse laptime for driver %s lap %d: %v", driverID, lapNum, err)
+		log.Printf("failed to parse laptime for driver %s lap %d in heat %s: %v", driverID, lapNum, heatNum, err)
 		return
 	}
 

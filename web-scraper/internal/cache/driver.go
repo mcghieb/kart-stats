@@ -45,6 +45,11 @@ func (c *Driver) Has(id string) bool {
 	return exists
 }
 
+// MapAlias adds an alias-to-ID mapping without modifying the driver record.
+func (c *Driver) MapAlias(alias string, id string) {
+	c.aliasToID.Store(alias, id)
+}
+
 func (c *Driver) UpdateProskill(id string, p int) error {
 	val, ok := c.drivers.Load(id)
 	if !ok {
