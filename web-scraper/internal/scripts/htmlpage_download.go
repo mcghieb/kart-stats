@@ -16,10 +16,8 @@ import (
 )
 
 const (
-	startHeatno = 1
-	endHeatno   = 50_000
-	batchSize   = 100
-	workers     = 10
+	batchSize = 100
+	workers   = 10
 )
 
 func numDigits(n int) int {
@@ -30,7 +28,17 @@ func numDigits(n int) int {
 	return int(math.Log10(float64(n))) + 1
 }
 
+// FIXME: fix this to actually use CDC
+func getHeatNumberBoundaries() (int, int) {
+	// Check to see if the heatdata folder exists
+	// If it does, find the last file name, convert to int and subtract 100
+	// Else, start at 1
+	// End value should be start val + 1000
+	return 1, 50_000
+}
+
 func DownloadHTMLpages() {
+	startHeatno, endHeatno := getHeatNumberBoundaries()
 	fmt.Println("BEGIN HTML DOWNLOAD")
 	startTime := time.Now()
 
@@ -40,7 +48,7 @@ func DownloadHTMLpages() {
 	// Progress printer goroutine
 	var progressWg sync.WaitGroup
 	progressWg.Add(1)
-	go progressPrinter(&completed, &progressWg, startTime)
+	go progressPrinter(&completed, &progressWg, startTime, endHeatno)
 
 	// Create work channel for heat numbers
 	heatNums := make(chan int, batchSize)
@@ -52,7 +60,7 @@ func DownloadHTMLpages() {
 	heatDigits := numDigits(endHeatno)
 	folderDigits := numDigits(endHeatno / batchSize)
 
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		wg.Add(1)
 		go worker(i, heatNums, &completed, &wg, heatDigits, folderDigits)
 	}
@@ -138,7 +146,7 @@ func folderExists(path string) bool {
 	return !os.IsNotExist(err) && info.IsDir()
 }
 
-func progressPrinter(completed *atomic.Int64, wg *sync.WaitGroup, startTime time.Time) {
+func progressPrinter(completed *atomic.Int64, wg *sync.WaitGroup, startTime time.Time, endHeatno int) {
 	defer wg.Done()
 	lastReported := int64(0)
 
