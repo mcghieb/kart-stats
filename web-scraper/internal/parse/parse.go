@@ -1,0 +1,168 @@
+package parse
+
+import (
+	"fmt"
+	"path"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/gocolly/colly/v2"
+)
+
+// HeatNum parses a heat number from the Race Heat Result specific page
+func HeatNum(e *colly.HTMLElement) string {
+	url := e.Request.URL.String()
+	return HeatNumFromURL(url)
+}
+
+func HeatNumFromURL(url string) string {
+	// Web URLs: ...?HeatNo=42004
+	if strings.Contains(url, "=") {
+		return strings.Split(url, "=")[1]
+	}
+	// File URLs: extract heat number from filename (e.g. "00042004.html" → "42004")
+	base := path.Base(url)
+	numStr := strings.TrimSuffix(base, ".html")
+	num, err := strconv.Atoi(numStr)
+	if err != nil {
+		return numStr
+	}
+	return strconv.Itoa(num)
+}
+
+// BestLaptime parses the driver's best laptime from the Race Heat Result specific page
+func BestLaptime(e *colly.HTMLElement) (float64, error) {
+	return parseFloat(e, "td.BestLap > span", "best lap time", false)
+}
+
+// NumLaps parses the number of laps a driver took from the Race Heat Result specific page
+func NumLaps(e *colly.HTMLElement) (int, error) {
+	return parseInt(e, "td.Laps > span", "number of laps")
+}
+
+// LeaderGap parses the laptime gap from the leader of the race from the Race Heat Result specific page
+func LeaderGap(e *colly.HTMLElement) (float64, error) {
+	return parseFloat(e, "td.Gap > span", "gap from leader", true)
+}
+
+// AvgLaptime parses a driver's average laptime from the Race Heat Result specific page
+func AvgLaptime(e *colly.HTMLElement) (float64, error) {
+	return parseFloat(e, "td.AvgLap > span", "average laptime", false)
+}
+
+// Position parses a driver's position in the race from the Race Heat Result specific page
+func Position(e *colly.HTMLElement) (int, error) {
+	return parseInt(e, "td.Position > span", "position")
+}
+
+// Top3Position parses a top 3 driver's position in the race from the Race Heat Result specific page
+func Top3Position(e *colly.HTMLElement) (int, error) {
+	p := e.ChildText("td.Position") // this is a special parse specific to the top rows
+	position := 0
+	switch p {
+	case "Heat Winner:":
+		position = 1
+	case "2nd Place:":
+		position = 2
+	case "3rd Place:":
+		position = 3
+	default:
+		return position, generateFetchError("top 3 row postion")
+	}
+
+	return position, nil
+}
+
+// DriverAlias parses a driver's alias from the Race Heat Result specific page
+func DriverAlias(e *colly.HTMLElement) (string, error) {
+	return parseString(e, "td.Racername a", "driver alias")
+}
+
+// Proskill parses a driver's proskill rating from the Race Heat Result specific page
+func Proskill(e *colly.HTMLElement) (int, error) {
+	return parseInt(e, "td.RPM > span", "proskill rating")
+}
+
+// KartID parses a kart number from an activity type string (e.g. "Pro Track (13 Laps) - Kart 19")
+func KartID(activityText string) (int, error) {
+	matches := kartIDRegex.FindStringSubmatch(activityText)
+	if len(matches) < 2 {
+		return 0, fmt.Errorf("no kart number found in %q", activityText)
+	}
+	return strconv.Atoi(matches[1])
+}
+
+var kartIDRegex = regexp.MustCompile(`Kart\s+(\d+)`)
+
+// generateFetchError generates an error when fetching data from an HTML page fails
+func generateFetchError(field string) error {
+	return fmt.Errorf("failed to parse %s from HTML", field)
+}
+
+// parseString takes an html element and a selector
+// and parses for a string based on the selector
+func parseString(
+	e *colly.HTMLElement,
+	selector,
+	category string,
+) (string, error) {
+	val := e.ChildText(selector)
+	if val == "" {
+		return "", generateFetchError(category)
+	}
+
+	return val, nil
+}
+
+// parseFloat wraps parseNumber() to return an float from a specific css selector
+func parseFloat(
+	e *colly.HTMLElement,
+	selector,
+	category string,
+	checkLeaderGap bool,
+) (float64, error) {
+	return parseNumber(e, selector, category, func(s string) (float64, error) {
+		if checkLeaderGap && s == "-" { // if the driver is the leader for leader gap parsing
+			return 0.00, nil
+		}
+		// Handle "NL" format (e.g. "1L", "2L") meaning N laps behind the leader.
+		// Stored as negative values to distinguish from time-based gaps.
+		if checkLeaderGap && strings.HasSuffix(s, "L") {
+			lapsBehind, err := strconv.ParseFloat(strings.TrimSuffix(s, "L"), 64)
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse laps behind value %q: %w", s, err)
+			}
+			return -lapsBehind, nil
+		}
+		return strconv.ParseFloat(s, 64)
+	})
+}
+
+// parseInt wraps parseNumber() to return an int from a specific css selector
+func parseInt(
+	e *colly.HTMLElement,
+	selector,
+	category string,
+) (int, error) {
+	return parseNumber(e, selector, category, func(s string) (int, error) {
+		return strconv.Atoi(s)
+	})
+}
+
+// parseNumber is a generic template function
+// that wraps parseString() and returns either
+// a float64 or an int
+func parseNumber[T int | float64](
+	e *colly.HTMLElement,
+	selector,
+	category string,
+	convert func(s string) (T, error),
+) (T, error) {
+	s, err := parseString(e, selector, category)
+	if err != nil {
+		return 0.0, generateFetchError(category)
+	}
+
+	return convert(s)
+}
