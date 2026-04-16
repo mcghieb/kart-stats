@@ -17,6 +17,7 @@ import (
 
 	"github.com/gocolly/colly/v2"
 	"github.com/mcghieb/kart-stats/web-scraper/internal/collector"
+	"github.com/mcghieb/kart-stats/web-scraper/internal/config"
 )
 
 const (
@@ -35,6 +36,11 @@ func numDigits(n int) int {
 // FIXME: fix this to actually use CDC
 // TODO: make the default values come from env variables
 func getHeatNumberBoundaries() (int, int) {
+	cfg := config.LoadConfig()
+	if cfg.StartHeatNo != 0 && cfg.EndHeatNo != 0 {
+		return cfg.StartHeatNo, cfg.EndHeatNo
+	}
+
 	var batchFolderIDs []int
 
 	const relPath = "./heatdata-files"
