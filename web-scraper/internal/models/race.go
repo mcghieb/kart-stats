@@ -12,7 +12,7 @@ type Lap struct {
 }
 
 type Result struct {
-	KartID                 int    // kart number
+	KartIDs                []int  // kart numbers (may be multiple in endurance/swap races)
 	DriverID               string // CustID
 	Position               int
 	Penalties              int
@@ -78,7 +78,7 @@ func (r Result) String() string {
 		"    Result {\n"+
 			"      DriverID: %s\n"+
 			"      Position: %d\n"+
-			"      KartID: %d\n"+
+			"      KartIDs: %v\n"+
 			"      Penalties: %d\n"+
 			"      BestLaptime: %.3f\n"+
 			"      AvgLaptime: %.3f\n"+
@@ -89,7 +89,7 @@ func (r Result) String() string {
 			"    }",
 		r.DriverID,
 		r.Position,
-		r.KartID,
+		r.KartIDs,
 		r.Penalties,
 		r.BestLaptime,
 		r.AvgLaptime,

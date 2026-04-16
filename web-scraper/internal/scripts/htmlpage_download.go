@@ -2,9 +2,13 @@ package scripts
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 	"math"
 	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,6 +17,7 @@ import (
 
 	"github.com/gocolly/colly/v2"
 	"github.com/mcghieb/kart-stats/web-scraper/internal/collector"
+	"github.com/mcghieb/kart-stats/web-scraper/internal/config"
 )
 
 const (
@@ -29,16 +34,75 @@ func numDigits(n int) int {
 }
 
 // FIXME: fix this to actually use CDC
+// TODO: make the default values come from env variables
 func getHeatNumberBoundaries() (int, int) {
-	// Check to see if the heatdata folder exists
-	// If it does, find the last file name, convert to int and subtract 100
-	// Else, start at 1
-	// End value should be start val + 1000
-	return 1, 50_000
+	cfg := config.LoadConfig()
+	if cfg.StartHeatNo != 0 && cfg.EndHeatNo != 0 {
+		return cfg.StartHeatNo, cfg.EndHeatNo
+	}
+
+	var batchFolderIDs []int
+
+	const relPath = "./heatdata-files"
+	fmt.Printf("PATH: %s\n", relPath)
+	info, err := os.Stat(relPath)
+	if err != nil || !info.IsDir() {
+		if err != nil {
+			fmt.Printf("heatdata-files directory not accessible: %v\n", err)
+		}
+		return 1, 50_000
+	}
+
+	// gets all the batch folder IDs
+	re := regexp.MustCompile(`[0-9]+`)
+	err = filepath.WalkDir(relPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip the root directory itself; we only care about batch subfolders.
+		if path == relPath {
+			return nil
+		}
+
+		if !d.IsDir() {
+			return nil
+		}
+
+		idStr := re.FindString(d.Name())
+		if idStr == "" {
+			// Directory name contains no digits; skip it rather than panicking.
+			return nil
+		}
+
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return err
+		}
+
+		batchFolderIDs = append(batchFolderIDs, id)
+		return nil
+	})
+	if err != nil {
+		panic(err) // not being able to parse html file names is a fatal error
+	}
+
+	slices.Sort(batchFolderIDs)
+	if len(batchFolderIDs) < 2 {
+		return 1, 50_000
+	}
+
+	batchID := batchFolderIDs[len(batchFolderIDs)-2]
+
+	startID := batchID * 100
+	endID := startID + 2000
+	return startID, endID
 }
 
 func DownloadHTMLpages() {
 	startHeatno, endHeatno := getHeatNumberBoundaries()
+	fmt.Printf("START_ID: %d; END_ID: %d\n", startHeatno, endHeatno)
+
 	fmt.Println("BEGIN HTML DOWNLOAD")
 	startTime := time.Now()
 
@@ -127,7 +191,7 @@ func attachHandler(c *colly.Collector, heatDigits, folderDigits int) {
 		folder := heat / batchSize
 		path := fmt.Sprintf(folderFmt, folder)
 		if !folderExists(path) {
-			err := os.MkdirAll(path, 0755)
+			err := os.MkdirAll(path, 0o755)
 			if err != nil {
 				panic(err)
 			}

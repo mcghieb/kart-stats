@@ -33,3 +33,9 @@ func (r *Race) Has(raceID string) bool {
 	_, exists := r.races.Load(raceID)
 	return exists
 }
+
+func (r *Race) Range(f func(raceID string) bool) {
+	r.races.Range(func(key, value interface{}) bool {
+		return f(key.(string))
+	})
+}
