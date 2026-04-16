@@ -72,11 +72,11 @@ func AttachHandlers(c *colly.Collector, store *cache.Cache) {
 				return
 			}
 
-			cache.UpdateCachedRace(store, heatNum, func(r *models.Race) {
-				result := r.Results[dID]
-				result.KartID = kartID
-				r.Results[dID] = result
-			})
+		cache.UpdateCachedRace(store, heatNum, func(r *models.Race) {
+			result := r.Results[dID]
+			result.KartIDs = append(result.KartIDs, kartID)
+			r.Results[dID] = result
+		})
 		})
 	})
 }

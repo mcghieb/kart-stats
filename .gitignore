@@ -1,2 +1,4 @@
 **/batch*
 heatdata-files*
+**/run.sh
+**/bin/*
